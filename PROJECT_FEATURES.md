@@ -114,7 +114,7 @@ Generate social media content using LLM providers.
 **Supported Providers:**
 - OpenAI (GPT-4o, GPT-4o-mini, GPT-4-turbo, GPT-3.5-turbo)
 - Anthropic (Claude 3.5 Sonnet, Claude 3 Opus/Sonnet/Haiku)
-- Google (Gemini 1.5 Pro, Gemini 1.5 Flash)
+- Google (Gemini 3 Pro, Gemini 3 Flash)
 
 **API Endpoint:**
 - `POST /api/v1/generate/text` - Generate text from prompt
@@ -401,7 +401,7 @@ These features existed in the original tkinter app but are not yet in the web ve
 
 ### Medium Priority
 2. **OCR Processing** - LM Studio integration for batch image text extraction
-3. **Additional AI Models** - GPT-5.x, Claude 4.x, Gemini 2.5 versions
+3. **Additional AI Models** - GPT-5.x, Claude 4.x, Gemini 3 versions
 4. **Enhanced Customer Personas** - Rich demographic model (age, location, occupation, interests)
 5. **Reference Image Support** - Use reference images for style-guided image generation
 

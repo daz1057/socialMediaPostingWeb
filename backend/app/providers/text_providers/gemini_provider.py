@@ -17,11 +17,10 @@ class GeminiProvider(BaseTextProvider):
     PROVIDER_NAME = "gemini"
 
     AVAILABLE_MODELS = [
-        "gemini-1.5-pro",
-        "gemini-1.5-pro-latest",
-        "gemini-1.5-flash",
-        "gemini-1.5-flash-latest",
-        "gemini-1.0-pro",
+        "gemini-3-pro",
+        "gemini-3-pro-latest",
+        "gemini-3-flash",
+        "gemini-3-flash-latest",
     ]
 
     VALID_CREDENTIAL_KEYS = ["gemini_api_key", "google_ai_api_key"]
