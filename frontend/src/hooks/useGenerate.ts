@@ -5,6 +5,7 @@ import type {
   TextGenerationResponse,
   ImageGenerationRequest,
   ImageGenerationResponse,
+  ReferenceImageUploadResponse,
 } from '@/types';
 
 export function useGenerateText() {
@@ -20,6 +21,25 @@ export function useGenerateImage() {
   return useMutation({
     mutationFn: async (data: ImageGenerationRequest) => {
       const response = await apiClient.post<ImageGenerationResponse>('/generate/image', data);
+      return response.data;
+    },
+  });
+}
+
+export function useUploadReferenceImage() {
+  return useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      const response = await apiClient.post<ReferenceImageUploadResponse>(
+        '/generate/image/reference',
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        }
+      );
       return response.data;
     },
   });

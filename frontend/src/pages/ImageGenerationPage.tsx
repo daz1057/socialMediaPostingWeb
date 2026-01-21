@@ -14,12 +14,14 @@ import {
   message,
   Divider,
   Slider,
+  Upload,
 } from 'antd';
-import { DownloadOutlined, PictureOutlined } from '@ant-design/icons';
+import { DownloadOutlined, PictureOutlined, UploadOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useModelConfigs } from '@/hooks/useModels';
-import { useGenerateImage } from '@/hooks/useGenerate';
+import { useGenerateImage, useUploadReferenceImage } from '@/hooks/useGenerate';
 import type { ImageGenerationRequest, ImageGenerationResponse, ModelConfig } from '@/types';
+import type { UploadFile, UploadProps } from 'antd';
 
 const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
@@ -29,6 +31,8 @@ export function ImageGenerationPage() {
   const [form] = Form.useForm();
   const [result, setResult] = useState<ImageGenerationResponse | null>(null);
   const [selectedModel, setSelectedModel] = useState<ModelConfig | null>(null);
+  const [referenceImageUrl, setReferenceImageUrl] = useState<string | null>(null);
+  const [referenceFileList, setReferenceFileList] = useState<UploadFile[]>([]);
 
   const { data: modelsData, isLoading: modelsLoading } = useModelConfigs({
     modelType: 'image',
@@ -36,6 +40,7 @@ export function ImageGenerationPage() {
   });
 
   const generateImage = useGenerateImage();
+  const uploadReferenceImage = useUploadReferenceImage();
 
   const onModelChange = (modelId: number) => {
     const model = modelsData?.items.find((m) => m.id === modelId);
@@ -44,7 +49,16 @@ export function ImageGenerationPage() {
 
   const onGenerate = async (values: ImageGenerationRequest) => {
     try {
-      const response = await generateImage.mutateAsync(values);
+      if (referenceImageUrl && !isFlux) {
+        message.warning('Reference images are only supported for Flux models.');
+      }
+
+      const response = await generateImage.mutateAsync({
+        ...values,
+        reference_image_url: isFlux ? referenceImageUrl ?? undefined : undefined,
+        reference_image_strength:
+          isFlux && referenceImageUrl ? values.reference_image_strength : undefined,
+      });
       setResult(response);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Generation failed';
@@ -63,6 +77,21 @@ export function ImageGenerationPage() {
 
   const isDallE = selectedModel?.provider === 'openai_dalle';
   const isFlux = selectedModel?.provider === 'bfl_flux';
+  const isUploadingReference = uploadReferenceImage.isPending;
+
+  const handleReferenceUpload: UploadProps['customRequest'] = async (options) => {
+    try {
+      const file = options.file as File;
+      const result = await uploadReferenceImage.mutateAsync(file);
+      setReferenceImageUrl(result.s3_url);
+      message.success('Reference image uploaded.');
+      options.onSuccess?.(result, new XMLHttpRequest());
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Failed to upload reference image.';
+      message.error(msg);
+      options.onError?.(new Error(msg));
+    }
+  };
 
   return (
     <div>
@@ -84,6 +113,7 @@ export function ImageGenerationPage() {
               height: 1024,
               steps: 28,
               guidance: 3.5,
+              reference_image_strength: 0.6,
             }}
           >
             <Form.Item
@@ -172,6 +202,42 @@ export function ImageGenerationPage() {
                   <Slider min={1} max={10} step={0.5} marks={{ 1: '1', 3.5: '3.5', 10: '10' }} />
                 </Form.Item>
               </>
+            )}
+
+            <Form.Item
+              label="Reference Image"
+              extra={
+                isFlux
+                  ? 'Upload a reference image to guide style.'
+                  : 'Reference images are supported for Flux models only.'
+              }
+            >
+              <Upload
+                accept="image/*"
+                maxCount={1}
+                fileList={referenceFileList}
+                customRequest={handleReferenceUpload}
+                onChange={({ fileList }) => setReferenceFileList(fileList)}
+                onRemove={() => {
+                  setReferenceImageUrl(null);
+                  setReferenceFileList([]);
+                }}
+                disabled={!isFlux}
+              >
+                <Button icon={<UploadOutlined />} loading={isUploadingReference}>
+                  Upload Reference Image
+                </Button>
+              </Upload>
+            </Form.Item>
+
+            {isFlux && referenceImageUrl && (
+              <Form.Item
+                name="reference_image_strength"
+                label="Reference Strength"
+                extra="Lower values allow more creative variation."
+              >
+                <Slider min={0} max={1} step={0.05} marks={{ 0: '0', 0.5: '0.5', 1: '1' }} />
+              </Form.Item>
             )}
 
             <Form.Item>

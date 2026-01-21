@@ -30,12 +30,13 @@ class S3Service:
             region_name=settings.AWS_REGION,
         )
 
-    def _generate_key(self, user_id: int, filename: str) -> str:
+    def _generate_key(self, user_id: int, filename: str, prefix: str = "posts") -> str:
         """Generate a unique S3 key for the file.
 
         Args:
             user_id: User ID for namespacing
             filename: Original filename
+            prefix: S3 prefix/folder
 
         Returns:
             S3 key with user prefix and UUID
@@ -44,19 +45,21 @@ class S3Service:
         # Extract extension from filename
         ext = filename.rsplit(".", 1)[-1] if "." in filename else ""
         if ext:
-            return f"posts/{user_id}/{file_uuid}.{ext}"
-        return f"posts/{user_id}/{file_uuid}"
+            return f"{prefix}/{user_id}/{file_uuid}.{ext}"
+        return f"{prefix}/{user_id}/{file_uuid}"
 
     async def upload_file(
         self,
         file: UploadFile,
         user_id: int,
+        prefix: str = "posts",
     ) -> dict:
         """Upload a file to S3.
 
         Args:
             file: FastAPI UploadFile object
             user_id: User ID for namespacing
+            prefix: S3 prefix/folder
 
         Returns:
             Dict with s3_url, s3_key, filename, and content_type
@@ -66,7 +69,7 @@ class S3Service:
         """
         try:
             # Generate unique key
-            s3_key = self._generate_key(user_id, file.filename or "upload")
+            s3_key = self._generate_key(user_id, file.filename or "upload", prefix=prefix)
 
             # Read file content
             content = await file.read()
