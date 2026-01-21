@@ -10,9 +10,10 @@ import {
   Tag,
   Popconfirm,
   message,
-  DatePicker,
   Tooltip,
+  Tabs,
 } from 'antd';
+import type { TableRowSelection } from 'antd/es/table/interface';
 import {
   PlusOutlined,
   SearchOutlined,
@@ -22,13 +23,22 @@ import {
   DownloadOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
+  InboxOutlined,
+  UndoOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
-import { usePosts, useDeletePost, useExportPostsCSV } from '@/hooks/usePosts';
+import {
+  usePosts,
+  useDeletePost,
+  useExportPostsCSV,
+  useArchivePost,
+  useRestorePost,
+  useBulkArchivePosts,
+  useBulkRestorePosts,
+} from '@/hooks/usePosts';
 import type { Post, PostStatus } from '@/types';
 
 const { Title } = Typography;
-const { RangePicker } = DatePicker;
 
 const statusColors: Record<PostStatus, string> = {
   draft: 'default',
@@ -40,7 +50,9 @@ export function PostsListPage() {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<PostStatus | undefined>();
+  const [isArchived, setIsArchived] = useState(false);
   const [page, setPage] = useState(1);
+  const [selectedRowKeys, setSelectedRowKeys] = useState<number[]>([]);
   const pageSize = 10;
 
   const { data, isLoading } = usePosts({
@@ -48,10 +60,22 @@ export function PostsListPage() {
     limit: pageSize,
     search: search || undefined,
     status,
+    isArchived,
   });
 
   const deletePost = useDeletePost();
   const exportCSV = useExportPostsCSV();
+  const archivePost = useArchivePost();
+  const restorePost = useRestorePost();
+  const bulkArchive = useBulkArchivePosts();
+  const bulkRestore = useBulkRestorePosts();
+
+  const handleTabChange = (key: string) => {
+    setIsArchived(key === 'archived');
+    setPage(1);
+    setSelectedRowKeys([]);
+    setStatus(undefined);
+  };
 
   const handleDelete = async (id: number) => {
     try {
@@ -62,13 +86,60 @@ export function PostsListPage() {
     }
   };
 
+  const handleArchive = async (id: number) => {
+    try {
+      await archivePost.mutateAsync(id);
+      message.success('Post archived successfully');
+    } catch {
+      message.error('Failed to archive post');
+    }
+  };
+
+  const handleRestore = async (id: number) => {
+    try {
+      await restorePost.mutateAsync(id);
+      message.success('Post restored successfully');
+    } catch {
+      message.error('Failed to restore post');
+    }
+  };
+
+  const handleBulkArchive = async () => {
+    try {
+      const result = await bulkArchive.mutateAsync(selectedRowKeys);
+      message.success(result.message);
+      setSelectedRowKeys([]);
+    } catch {
+      message.error('Failed to archive posts');
+    }
+  };
+
+  const handleBulkRestore = async () => {
+    try {
+      const result = await bulkRestore.mutateAsync(selectedRowKeys);
+      message.success(result.message);
+      setSelectedRowKeys([]);
+    } catch {
+      message.error('Failed to restore posts');
+    }
+  };
+
   const handleExportCSV = async () => {
     try {
-      await exportCSV.mutateAsync({ status });
+      await exportCSV.mutateAsync({ status, isArchived });
       message.success('CSV exported successfully');
     } catch {
       message.error('Failed to export CSV');
     }
+  };
+
+  const rowSelection: TableRowSelection<Post> = {
+    selectedRowKeys,
+    onChange: (keys) => setSelectedRowKeys(keys as number[]),
+    getCheckboxProps: (record) => ({
+      // Only allow archiving published posts (when viewing active posts)
+      disabled: !isArchived && record.status !== 'published',
+    }),
   };
 
   const columns: ColumnsType<Post> = [
@@ -137,7 +208,7 @@ export function PostsListPage() {
     {
       title: 'Actions',
       key: 'actions',
-      width: 120,
+      width: 150,
       render: (_, record) => (
         <Space>
           <Button
@@ -150,6 +221,42 @@ export function PostsListPage() {
             size="small"
             onClick={() => navigate(`/posts/${record.id}/edit`)}
           />
+          {/* Archive button - only for published, non-archived posts */}
+          {!isArchived && record.status === 'published' && (
+            <Popconfirm
+              title="Archive this post?"
+              description="The post will be moved to the archive."
+              onConfirm={() => handleArchive(record.id)}
+              okText="Archive"
+            >
+              <Tooltip title="Archive">
+                <Button
+                  icon={<InboxOutlined />}
+                  size="small"
+                  loading={archivePost.isPending}
+                />
+              </Tooltip>
+            </Popconfirm>
+          )}
+          {/* Restore button - only for archived posts */}
+          {isArchived && (
+            <Popconfirm
+              title="Restore this post?"
+              description="The post will be restored to active posts."
+              onConfirm={() => handleRestore(record.id)}
+              okText="Restore"
+            >
+              <Tooltip title="Restore">
+                <Button
+                  icon={<UndoOutlined />}
+                  size="small"
+                  type="primary"
+                  ghost
+                  loading={restorePost.isPending}
+                />
+              </Tooltip>
+            </Popconfirm>
+          )}
           <Popconfirm
             title="Delete this post?"
             description="This action cannot be undone."
@@ -186,6 +293,15 @@ export function PostsListPage() {
         </Space>
       </div>
 
+      <Tabs
+        activeKey={isArchived ? 'archived' : 'active'}
+        onChange={handleTabChange}
+        items={[
+          { key: 'active', label: 'Active Posts' },
+          { key: 'archived', label: 'Archived Posts' },
+        ]}
+      />
+
       <Space className="tw-mb-4" wrap>
         <Input
           placeholder="Search posts..."
@@ -207,6 +323,42 @@ export function PostsListPage() {
             { value: 'published', label: 'Published' },
           ]}
         />
+        {/* Bulk action buttons */}
+        {selectedRowKeys.length > 0 && (
+          <>
+            {!isArchived ? (
+              <Popconfirm
+                title={`Archive ${selectedRowKeys.length} posts?`}
+                description="Selected posts will be moved to the archive."
+                onConfirm={handleBulkArchive}
+                okText="Archive"
+              >
+                <Button
+                  icon={<InboxOutlined />}
+                  loading={bulkArchive.isPending}
+                >
+                  Archive Selected ({selectedRowKeys.length})
+                </Button>
+              </Popconfirm>
+            ) : (
+              <Popconfirm
+                title={`Restore ${selectedRowKeys.length} posts?`}
+                description="Selected posts will be restored to active posts."
+                onConfirm={handleBulkRestore}
+                okText="Restore"
+              >
+                <Button
+                  icon={<UndoOutlined />}
+                  type="primary"
+                  ghost
+                  loading={bulkRestore.isPending}
+                >
+                  Restore Selected ({selectedRowKeys.length})
+                </Button>
+              </Popconfirm>
+            )}
+          </>
+        )}
       </Space>
 
       <Table
@@ -214,6 +366,7 @@ export function PostsListPage() {
         dataSource={data?.items}
         rowKey="id"
         loading={isLoading}
+        rowSelection={rowSelection}
         pagination={{
           current: page,
           pageSize,

@@ -38,6 +38,9 @@ import {
   TemplateDetailPage,
 } from './pages/templates';
 
+// OCR Pages
+import { OCRPage } from './pages/ocr';
+
 // Settings Pages
 import { CredentialsPage, ModelsPage } from './pages/settings';
 
@@ -75,6 +78,9 @@ function App() {
           {/* Generation */}
           <Route path="/generate/text" element={<TextGenerationPage />} />
           <Route path="/generate/image" element={<ImageGenerationPage />} />
+
+          {/* OCR */}
+          <Route path="/ocr" element={<OCRPage />} />
 
           {/* Posts */}
           <Route path="/posts" element={<PostsListPage />} />

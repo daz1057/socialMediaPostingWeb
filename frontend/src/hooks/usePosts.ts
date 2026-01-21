@@ -6,21 +6,23 @@ interface UsePostsParams {
   skip?: number;
   limit?: number;
   status?: PostStatus;
+  isArchived?: boolean;
   dateFrom?: string;
   dateTo?: string;
   search?: string;
 }
 
 export function usePosts(params: UsePostsParams = {}) {
-  const { skip = 0, limit = 100, status, dateFrom, dateTo, search } = params;
+  const { skip = 0, limit = 100, status, isArchived, dateFrom, dateTo, search } = params;
 
   return useQuery({
-    queryKey: ['posts', { skip, limit, status, dateFrom, dateTo, search }],
+    queryKey: ['posts', { skip, limit, status, isArchived, dateFrom, dateTo, search }],
     queryFn: async () => {
       const queryParams = new URLSearchParams();
       queryParams.append('skip', skip.toString());
       queryParams.append('limit', limit.toString());
       if (status) queryParams.append('status', status);
+      if (isArchived !== undefined) queryParams.append('is_archived', isArchived.toString());
       if (dateFrom) queryParams.append('date_from', dateFrom);
       if (dateTo) queryParams.append('date_to', dateTo);
       if (search) queryParams.append('search', search);
@@ -141,9 +143,10 @@ export function useRemoveMedia(postId: number) {
 
 export function useExportPostsCSV() {
   return useMutation({
-    mutationFn: async (params: { status?: PostStatus; dateFrom?: string; dateTo?: string }) => {
+    mutationFn: async (params: { status?: PostStatus; isArchived?: boolean; dateFrom?: string; dateTo?: string }) => {
       const queryParams = new URLSearchParams();
       if (params.status) queryParams.append('status', params.status);
+      if (params.isArchived !== undefined) queryParams.append('is_archived', params.isArchived.toString());
       if (params.dateFrom) queryParams.append('date_from', params.dateFrom);
       if (params.dateTo) queryParams.append('date_to', params.dateTo);
 
@@ -160,6 +163,74 @@ export function useExportPostsCSV() {
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
+    },
+  });
+}
+
+export function useArchivePost() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const response = await apiClient.post<Post>(`/posts/${id}/archive`);
+      return response.data;
+    },
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: ['posts'] });
+      queryClient.invalidateQueries({ queryKey: ['post', id] });
+    },
+  });
+}
+
+export function useRestorePost() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const response = await apiClient.post<Post>(`/posts/${id}/restore`);
+      return response.data;
+    },
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: ['posts'] });
+      queryClient.invalidateQueries({ queryKey: ['post', id] });
+    },
+  });
+}
+
+interface BulkArchiveResponse {
+  archived_count: number;
+  message: string;
+}
+
+interface BulkRestoreResponse {
+  restored_count: number;
+  message: string;
+}
+
+export function useBulkArchivePosts() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (postIds: number[]) => {
+      const response = await apiClient.post<BulkArchiveResponse>('/posts/bulk/archive', { post_ids: postIds });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['posts'] });
+    },
+  });
+}
+
+export function useBulkRestorePosts() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (postIds: number[]) => {
+      const response = await apiClient.post<BulkRestoreResponse>('/posts/bulk/restore', { post_ids: postIds });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['posts'] });
     },
   });
 }

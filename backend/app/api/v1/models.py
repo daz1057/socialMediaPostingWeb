@@ -306,7 +306,7 @@ async def list_providers(
         current_user: Current authenticated user
 
     Returns:
-        ProvidersListResponse: All text and image providers with their models
+        ProvidersListResponse: All text, image, and vision providers with their models
     """
     # Get text providers
     text_providers = []
@@ -334,7 +334,21 @@ async def list_providers(
                 )
             )
 
+    # Get vision providers
+    vision_providers = []
+    for provider_name in ProviderFactory.get_available_vision_providers():
+        provider_class = ProviderFactory.get_vision_provider_class(provider_name)
+        if provider_class:
+            vision_providers.append(
+                ProviderInfo(
+                    name=provider_name,
+                    available_models=provider_class.get_available_models(),
+                    valid_credential_keys=provider_class.get_valid_credential_keys(),
+                )
+            )
+
     return ProvidersListResponse(
         text_providers=text_providers,
         image_providers=image_providers,
+        vision_providers=vision_providers,
     )

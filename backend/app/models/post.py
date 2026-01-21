@@ -37,6 +37,10 @@ class Post(Base, TimestampMixin):
     keep = Column(Boolean, default=False, nullable=False)  # Ready to publish flag
     for_deletion = Column(Boolean, default=False, nullable=False)  # Mark for deletion flag
 
+    # Archive state
+    is_archived = Column(Boolean, default=False, nullable=False, index=True)  # Archived flag
+    archived_at = Column(DateTime, nullable=True)  # When the post was archived
+
     # Scheduling
     scheduled_at = Column(DateTime, nullable=True)
     published_at = Column(DateTime, nullable=True)

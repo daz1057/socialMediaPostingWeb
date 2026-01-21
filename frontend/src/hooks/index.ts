@@ -55,3 +55,6 @@ export {
   useUpdateTemplate,
   useDeleteTemplate,
 } from './useTemplates';
+
+// OCR hooks
+export { useProcessImage, useOCRProviders } from './useOCR';

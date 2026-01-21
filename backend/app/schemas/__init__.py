@@ -31,6 +31,10 @@ from app.schemas.template import (
     Template, TemplateCreate, TemplateUpdate, TemplateList,
     TemplateCategory
 )
+from app.schemas.ocr import (
+    OCRProcessRequest, OCRProcessResponse,
+    OCRProviderInfo, OCRProvidersResponse
+)
 
 __all__ = [
     "User",
@@ -80,4 +84,8 @@ __all__ = [
     "TemplateUpdate",
     "TemplateList",
     "TemplateCategory",
+    "OCRProcessRequest",
+    "OCRProcessResponse",
+    "OCRProviderInfo",
+    "OCRProvidersResponse",
 ]

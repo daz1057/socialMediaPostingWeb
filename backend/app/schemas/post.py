@@ -63,6 +63,7 @@ class PostUpdate(BaseModel):
     original_prompt_name: Optional[str] = Field(None, max_length=255)
     keep: Optional[bool] = None
     for_deletion: Optional[bool] = None
+    is_archived: Optional[bool] = None
     scheduled_at: Optional[datetime] = None
     prompt_id: Optional[int] = None
     media_urls: Optional[List[str]] = None
@@ -74,6 +75,8 @@ class Post(PostBase):
     id: int
     user_id: int
     media_urls: List[str]
+    is_archived: bool = False
+    archived_at: Optional[datetime] = None
     published_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime

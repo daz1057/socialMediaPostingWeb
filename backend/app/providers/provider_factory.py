@@ -2,7 +2,7 @@
 """Factory for creating AI provider instances."""
 
 from typing import Optional, Dict, Type, List
-from .base_provider import BaseTextProvider, BaseImageProvider
+from .base_provider import BaseTextProvider, BaseImageProvider, BaseVisionProvider
 
 
 class ProviderFactory:
@@ -13,6 +13,7 @@ class ProviderFactory:
 
     _text_providers: Dict[str, Type[BaseTextProvider]] = {}
     _image_providers: Dict[str, Type[BaseImageProvider]] = {}
+    _vision_providers: Dict[str, Type[BaseVisionProvider]] = {}
 
     @classmethod
     def register_text_provider(cls, name: str, provider_class: Type[BaseTextProvider]) -> None:
@@ -33,6 +34,16 @@ class ProviderFactory:
             provider_class: Class implementing BaseImageProvider
         """
         cls._image_providers[name] = provider_class
+
+    @classmethod
+    def register_vision_provider(cls, name: str, provider_class: Type[BaseVisionProvider]) -> None:
+        """Register a new vision provider.
+
+        Args:
+            name: Provider identifier (e.g., 'lm_studio_vision', 'openai_vision')
+            provider_class: Class implementing BaseVisionProvider
+        """
+        cls._vision_providers[name] = provider_class
 
     @classmethod
     def create_text_provider(
@@ -83,6 +94,30 @@ class ProviderFactory:
         return None
 
     @classmethod
+    def create_vision_provider(
+        cls,
+        provider_name: str,
+        api_key: str,
+        model_id: str,
+        **kwargs
+    ) -> Optional[BaseVisionProvider]:
+        """Create a vision provider instance.
+
+        Args:
+            provider_name: Provider identifier
+            api_key: API key for authentication
+            model_id: Model identifier to use
+            **kwargs: Additional provider-specific arguments
+
+        Returns:
+            Provider instance or None if provider not found
+        """
+        provider_class = cls._vision_providers.get(provider_name)
+        if provider_class:
+            return provider_class(api_key=api_key, model_id=model_id, **kwargs)
+        return None
+
+    @classmethod
     def get_available_text_providers(cls) -> List[str]:
         """Return list of registered text provider names.
 
@@ -99,6 +134,15 @@ class ProviderFactory:
             List of provider identifier strings
         """
         return list(cls._image_providers.keys())
+
+    @classmethod
+    def get_available_vision_providers(cls) -> List[str]:
+        """Return list of registered vision provider names.
+
+        Returns:
+            List of provider identifier strings
+        """
+        return list(cls._vision_providers.keys())
 
     @classmethod
     def get_text_provider_class(cls, provider_name: str) -> Optional[Type[BaseTextProvider]]:
@@ -125,20 +169,36 @@ class ProviderFactory:
         return cls._image_providers.get(provider_name)
 
     @classmethod
+    def get_vision_provider_class(cls, provider_name: str) -> Optional[Type[BaseVisionProvider]]:
+        """Get the class for a vision provider.
+
+        Args:
+            provider_name: Provider identifier
+
+        Returns:
+            Provider class or None if not found
+        """
+        return cls._vision_providers.get(provider_name)
+
+    @classmethod
     def get_models_for_provider(cls, provider_name: str, provider_type: str = "text") -> List[str]:
         """Get available models for a specific provider.
 
         Args:
             provider_name: Provider identifier
-            provider_type: 'text' or 'image'
+            provider_type: 'text', 'image', or 'vision'
 
         Returns:
             List of model ID strings
         """
         if provider_type == "text":
             provider_class = cls._text_providers.get(provider_name)
-        else:
+        elif provider_type == "image":
             provider_class = cls._image_providers.get(provider_name)
+        elif provider_type == "vision":
+            provider_class = cls._vision_providers.get(provider_name)
+        else:
+            return []
 
         if provider_class:
             return provider_class.get_available_models()
@@ -150,15 +210,19 @@ class ProviderFactory:
 
         Args:
             provider_name: Provider identifier
-            provider_type: 'text' or 'image'
+            provider_type: 'text', 'image', or 'vision'
 
         Returns:
             List of valid credential key strings
         """
         if provider_type == "text":
             provider_class = cls._text_providers.get(provider_name)
-        else:
+        elif provider_type == "image":
             provider_class = cls._image_providers.get(provider_name)
+        elif provider_type == "vision":
+            provider_class = cls._vision_providers.get(provider_name)
+        else:
+            return []
 
         if provider_class:
             return provider_class.get_valid_credential_keys()

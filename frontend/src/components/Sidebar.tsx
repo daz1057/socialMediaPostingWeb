@@ -10,6 +10,7 @@ import {
   KeyOutlined,
   SettingOutlined,
   SnippetsOutlined,
+  ScanOutlined,
 } from '@ant-design/icons';
 
 type MenuItem = Required<MenuProps>['items'][number];
@@ -47,6 +48,11 @@ const menuItems: MenuItem[] = [
         label: 'Image',
       },
     ],
+  },
+  {
+    key: '/ocr',
+    icon: <ScanOutlined />,
+    label: 'OCR',
   },
   {
     key: '/posts',

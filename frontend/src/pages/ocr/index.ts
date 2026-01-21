@@ -1,0 +1,1 @@
+export { OCRPage } from './OCRPage';

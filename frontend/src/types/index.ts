@@ -185,7 +185,7 @@ export interface CredentialValidateResponse {
 }
 
 // ============ Model Config Types ============
-export type ModelType = 'text' | 'image';
+export type ModelType = 'text' | 'image' | 'vision';
 
 export interface ModelConfig {
   id: number;
@@ -269,6 +269,8 @@ export interface Post {
   original_prompt_name?: string;
   keep: boolean;
   for_deletion: boolean;
+  is_archived: boolean;
+  archived_at?: string;
   scheduled_at?: string;
   published_at?: string;
   media_urls: string[];
@@ -303,6 +305,7 @@ export interface PostUpdate {
   original_prompt_name?: string;
   keep?: boolean;
   for_deletion?: boolean;
+  is_archived?: boolean;
   scheduled_at?: string;
   media_urls?: string[];
   prompt_id?: number;
@@ -434,4 +437,33 @@ export interface TemplateList {
   total: number;
   skip: number;
   limit: number;
+}
+
+// ============ OCR Types ============
+export interface OCRProcessResponse {
+  extracted_text: string;
+  model_used: string;
+  provider: string;
+  usage?: {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    total_tokens?: number;
+  };
+  request_id: string;
+  success: boolean;
+  error?: string;
+  template_id?: number;
+  template_name?: string;
+}
+
+export interface OCRProviderInfo {
+  name: string;
+  display_name: string;
+  available_models: string[];
+  valid_credential_keys: string[];
+  is_local: boolean;
+}
+
+export interface OCRProvidersResponse {
+  providers: OCRProviderInfo[];
 }

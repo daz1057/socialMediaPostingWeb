@@ -11,7 +11,7 @@ class ModelConfigBase(BaseModel):
 
     provider: str = Field(..., min_length=1, max_length=50, description="Provider name (e.g., 'openai', 'anthropic')")
     model_id: str = Field(..., min_length=1, max_length=100, description="Model identifier")
-    model_type: str = Field(..., pattern="^(text|image)$", description="Model type: 'text' or 'image'")
+    model_type: str = Field(..., pattern="^(text|image|vision)$", description="Model type: 'text', 'image', or 'vision'")
 
 
 class ModelConfigCreate(ModelConfigBase):
@@ -63,3 +63,4 @@ class ProvidersListResponse(BaseModel):
 
     text_providers: List[ProviderInfo]
     image_providers: List[ProviderInfo]
+    vision_providers: List[ProviderInfo]

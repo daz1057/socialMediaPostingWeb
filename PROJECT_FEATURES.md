@@ -63,7 +63,7 @@ Prompts are AI generation templates with customer persona injection.
 - `DELETE /api/v1/prompts/{id}` - Delete prompt
 
 ### 3. Posts Management
-Posts are social media content items (drafts, scheduled, published).
+Posts are social media content items (drafts, scheduled, published) with archive support.
 
 **Fields:**
 - `content` - Main post text
@@ -75,18 +75,24 @@ Posts are social media content items (drafts, scheduled, published).
 - `original_prompt_name` - Name of source prompt (if AI-generated)
 - `keep` - Boolean flag for "ready to publish"
 - `for_deletion` - Boolean flag for "mark for deletion"
+- `is_archived` - Boolean flag for archived posts
+- `archived_at` - Archive datetime
 - `scheduled_at` - Scheduled publication datetime
 - `published_at` - Actual publication datetime
 - `media_urls` - JSON array of S3 URLs
 - `prompt_id` - Source prompt (foreign key)
 
 **API Endpoints:**
-- `GET /api/v1/posts` - List posts (paginated, filterable by status/date/search)
+- `GET /api/v1/posts` - List posts (paginated, filterable by status/date/search/archived)
 - `POST /api/v1/posts` - Create post
 - `GET /api/v1/posts/{id}` - Get post details
 - `PUT /api/v1/posts/{id}` - Update post
 - `DELETE /api/v1/posts/{id}` - Delete post
 - `POST /api/v1/posts/{id}/publish` - Mark as published
+- `POST /api/v1/posts/{id}/archive` - Archive a published post
+- `POST /api/v1/posts/{id}/restore` - Restore an archived post
+- `POST /api/v1/posts/bulk/archive` - Bulk archive posts
+- `POST /api/v1/posts/bulk/restore` - Bulk restore posts
 - `POST /api/v1/posts/{id}/media` - Upload media to S3
 - `DELETE /api/v1/posts/{id}/media` - Remove media
 - `GET /api/v1/posts/export/csv` - Export posts to CSV
@@ -207,9 +213,9 @@ Secure storage for API keys (encrypted with Fernet).
 Configure which AI models are available per user.
 
 **Fields:**
-- `provider` - openai | anthropic | google | bfl
+- `provider` - openai | anthropic | google | bfl | lm_studio_vision | openai_vision | anthropic_vision
 - `model_id` - Provider-specific model ID
-- `model_type` - text | image
+- `model_type` - text | image | vision
 - `display_name` - User-friendly name
 - `is_enabled` - Whether model is active
 - `is_default` - Default model for type
@@ -219,7 +225,7 @@ Configure which AI models are available per user.
 - `POST /api/v1/models` - Create model config
 - `PUT /api/v1/models/{id}` - Update model config
 - `DELETE /api/v1/models/{id}` - Delete model config
-- `GET /api/v1/models/providers` - List available providers and models
+- `GET /api/v1/models/providers/list` - List available providers and models (text, image, vision)
 - `POST /api/v1/models/initialize` - Initialize default models for user
 
 ### 9. Customer Info / Personas
@@ -261,6 +267,69 @@ Categories for organizing prompts.
 - Filterable by status, date range
 - Downloadable file response
 
+### 13. Published Posts Archive
+Archive functionality for published posts with separate view.
+
+**Features:**
+- Archive published posts (moves to separate view)
+- Restore archived posts back to active
+- Tab-based UI (Active Posts / Archived Posts)
+- Bulk archive/restore operations
+- Filter by archived status in API
+
+**Frontend:**
+- Tabs on Posts List page for Active/Archived views
+- Archive button on published posts
+- Restore button on archived posts
+- Bulk selection for archive/restore operations
+
+### 14. OCR Processing
+Extract text from images using AI vision models and save as templates.
+
+**Supported Providers:**
+- LM Studio (local, no API key required) - LLaVA models
+- OpenAI Vision (GPT-4o, GPT-4o-mini, GPT-4-turbo)
+- Anthropic Vision (Claude 3.5 Sonnet, Claude 3 Opus/Sonnet/Haiku)
+
+**API Endpoints:**
+- `POST /api/v1/ocr/process` - Process image and extract text
+- `GET /api/v1/ocr/providers` - List available vision providers
+
+**Request (multipart/form-data):**
+```
+file: <image file>
+model_config_id: 1
+custom_prompt: "Extract all text..." (optional)
+template_name: "My OCR Template" (optional)
+template_tags: "ocr, extracted" (optional, comma-separated)
+```
+
+**Response:**
+```json
+{
+  "extracted_text": "Text from image...",
+  "model_used": "gpt-4o",
+  "provider": "openai_vision",
+  "usage": {
+    "prompt_tokens": 500,
+    "completion_tokens": 200,
+    "total_tokens": 700
+  },
+  "success": true,
+  "request_id": "uuid",
+  "template_id": 5,
+  "template_name": "OCR: document.png"
+}
+```
+
+**Features:**
+- Drag & drop image upload
+- Support for PNG, JPG, GIF, WEBP (max 20MB)
+- Custom extraction prompts
+- Automatic OCR template creation
+- Copy extracted text to clipboard
+- Link to view created template
+
 ---
 
 ## Frontend Pages
@@ -284,6 +353,7 @@ Categories for organizing prompts.
 | `/posts/:id/edit` | PostEditPage | Edit post |
 | `/generate/text` | TextGenerationPage | AI text generation UI |
 | `/generate/image` | ImageGenerationPage | AI image generation UI |
+| `/ocr` | OCRPage | OCR text extraction from images |
 | `/settings/credentials` | CredentialsPage | Manage API keys |
 | `/settings/models` | ModelsPage | Configure AI models |
 
@@ -336,6 +406,8 @@ CREATE TABLE posts (
     original_prompt_name VARCHAR(255),
     keep BOOLEAN DEFAULT FALSE,
     for_deletion BOOLEAN DEFAULT FALSE,
+    is_archived BOOLEAN DEFAULT FALSE,
+    archived_at TIMESTAMP,
     scheduled_at TIMESTAMP,
     published_at TIMESTAMP,
     media_urls JSON DEFAULT '[]',
@@ -344,6 +416,7 @@ CREATE TABLE posts (
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW()
 );
+CREATE INDEX ix_posts_is_archived ON posts(is_archived);
 ```
 
 ### Templates
@@ -380,7 +453,7 @@ CREATE TABLE model_configs (
     id SERIAL PRIMARY KEY,
     provider VARCHAR(50) NOT NULL,
     model_id VARCHAR(100) NOT NULL,
-    model_type VARCHAR(20) NOT NULL,  -- 'text', 'image'
+    model_type VARCHAR(20) NOT NULL,  -- 'text', 'image', 'vision'
     display_name VARCHAR(100),
     is_enabled BOOLEAN DEFAULT TRUE,
     is_default BOOLEAN DEFAULT FALSE,
@@ -396,20 +469,16 @@ CREATE TABLE model_configs (
 
 These features existed in the original tkinter app but are not yet in the web version:
 
-### High Priority
-1. **Published Posts Archive** - Separate view/filter for published posts with archive functionality
-
 ### Medium Priority
-2. **OCR Processing** - LM Studio integration for batch image text extraction
-3. **Additional AI Models** - GPT-5.x, Claude 4.x, Gemini 3 versions
-4. **Enhanced Customer Personas** - Rich demographic model (age, location, occupation, interests)
-5. **Reference Image Support** - Use reference images for style-guided image generation
+1. **Additional AI Models** - GPT-5.x, Claude 4.x, Gemini 2.5 versions
+2. **Enhanced Customer Personas** - Rich demographic model (age, location, occupation, interests)
+3. **Reference Image Support** - Use reference images for style-guided image generation
 
 ### Low Priority
-6. **Debug Viewer** - View LLM API request/response logs
-7. **Audit Log Viewer** - View user action logs
-8. **Batch Import** - CSV bulk import of posts
-9. **Batch OCR Processing** - Process entire image folders
+4. **Debug Viewer** - View LLM API request/response logs
+5. **Audit Log Viewer** - View user action logs
+6. **Batch Import** - CSV bulk import of posts
+7. **Batch OCR Processing** - Process entire image folders
 
 ---
 
@@ -477,4 +546,4 @@ All API endpoints (except `/auth/login`, `/auth/register`, `/auth/refresh`) requ
 
 ---
 
-*Last Updated: January 2025*
+*Last Updated: January 21, 2025*

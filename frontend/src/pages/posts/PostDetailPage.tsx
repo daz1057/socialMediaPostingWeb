@@ -16,8 +16,10 @@ import {
   EditOutlined,
   DeleteOutlined,
   CheckCircleOutlined,
+  InboxOutlined,
+  UndoOutlined,
 } from '@ant-design/icons';
-import { usePost, useDeletePost, usePublishPost } from '@/hooks/usePosts';
+import { usePost, useDeletePost, usePublishPost, useArchivePost, useRestorePost } from '@/hooks/usePosts';
 import type { PostStatus } from '@/types';
 
 const { Title, Paragraph } = Typography;
@@ -36,6 +38,8 @@ export function PostDetailPage() {
   const { data: post, isLoading } = usePost(postId);
   const deletePost = useDeletePost();
   const publishPost = usePublishPost();
+  const archivePost = useArchivePost();
+  const restorePost = useRestorePost();
 
   const handleDelete = async () => {
     try {
@@ -53,6 +57,24 @@ export function PostDetailPage() {
       message.success('Post published successfully');
     } catch {
       message.error('Failed to publish post');
+    }
+  };
+
+  const handleArchive = async () => {
+    try {
+      await archivePost.mutateAsync(postId);
+      message.success('Post archived successfully');
+    } catch {
+      message.error('Failed to archive post');
+    }
+  };
+
+  const handleRestore = async () => {
+    try {
+      await restorePost.mutateAsync(postId);
+      message.success('Post restored successfully');
+    } catch {
+      message.error('Failed to restore post');
     }
   };
 
@@ -108,6 +130,38 @@ export function PostDetailPage() {
               </Button>
             </Popconfirm>
           )}
+          {post.status === 'published' && !post.is_archived && (
+            <Popconfirm
+              title="Archive this post?"
+              description="The post will be moved to the archive."
+              onConfirm={handleArchive}
+              okText="Archive"
+            >
+              <Button
+                icon={<InboxOutlined />}
+                loading={archivePost.isPending}
+              >
+                Archive
+              </Button>
+            </Popconfirm>
+          )}
+          {post.is_archived && (
+            <Popconfirm
+              title="Restore this post?"
+              description="The post will be restored to active posts."
+              onConfirm={handleRestore}
+              okText="Restore"
+            >
+              <Button
+                icon={<UndoOutlined />}
+                type="primary"
+                ghost
+                loading={restorePost.isPending}
+              >
+                Restore
+              </Button>
+            </Popconfirm>
+          )}
           <Button
             icon={<EditOutlined />}
             onClick={() => navigate(`/posts/${post.id}/edit`)}
@@ -131,7 +185,10 @@ export function PostDetailPage() {
       <Card>
         <Descriptions column={1} bordered>
           <Descriptions.Item label="Status">
-            <Tag color={statusColors[post.status]}>{post.status.toUpperCase()}</Tag>
+            <Space>
+              <Tag color={statusColors[post.status]}>{post.status.toUpperCase()}</Tag>
+              {post.is_archived && <Tag color="orange">ARCHIVED</Tag>}
+            </Space>
           </Descriptions.Item>
           <Descriptions.Item label="Created">
             {new Date(post.created_at).toLocaleString()}
@@ -144,6 +201,11 @@ export function PostDetailPage() {
           {post.published_at && (
             <Descriptions.Item label="Published At">
               {new Date(post.published_at).toLocaleString()}
+            </Descriptions.Item>
+          )}
+          {post.archived_at && (
+            <Descriptions.Item label="Archived At">
+              {new Date(post.archived_at).toLocaleString()}
             </Descriptions.Item>
           )}
           {post.updated_at && (

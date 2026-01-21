@@ -2,8 +2,9 @@
 Posts CRUD endpoints for social media content management.
 """
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File
+from pydantic import BaseModel, Field
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 import io
@@ -28,6 +29,7 @@ async def list_posts(
     skip: int = Query(0, ge=0, description="Number of posts to skip"),
     limit: int = Query(100, ge=1, le=500, description="Number of posts to return"),
     status: Optional[PostStatus] = Query(None, description="Filter by status"),
+    is_archived: Optional[bool] = Query(None, description="Filter by archive status"),
     date_from: Optional[datetime] = Query(None, description="Filter from date"),
     date_to: Optional[datetime] = Query(None, description="Filter to date"),
     search: Optional[str] = Query(None, description="Search in content"),
@@ -41,6 +43,7 @@ async def list_posts(
         skip: Number of posts to skip (pagination)
         limit: Maximum number of posts to return
         status: Optional status filter
+        is_archived: Optional archive status filter
         date_from: Optional start date filter
         date_to: Optional end date filter
         search: Optional content search query
@@ -58,6 +61,7 @@ async def list_posts(
     posts, total = await service.list_posts(
         user_id=current_user.id,
         status=model_status,
+        is_archived=is_archived,
         date_from=date_from,
         date_to=date_to,
         search=search,
@@ -101,6 +105,7 @@ async def create_post(
 @router.get("/export/csv")
 async def export_posts_csv(
     status: Optional[PostStatus] = Query(None, description="Filter by status"),
+    is_archived: Optional[bool] = Query(None, description="Filter by archive status"),
     date_from: Optional[datetime] = Query(None, description="Filter from date"),
     date_to: Optional[datetime] = Query(None, description="Filter to date"),
     db: AsyncSession = Depends(get_db),
@@ -111,6 +116,7 @@ async def export_posts_csv(
 
     Args:
         status: Optional status filter
+        is_archived: Optional archive status filter
         date_from: Optional start date filter
         date_to: Optional end date filter
         db: Database session
@@ -128,6 +134,7 @@ async def export_posts_csv(
     posts, _ = await service.list_posts(
         user_id=current_user.id,
         status=model_status,
+        is_archived=is_archived,
         date_from=date_from,
         date_to=date_to,
         skip=0,
@@ -379,3 +386,122 @@ async def publish_post(
         )
 
     return post
+
+
+@router.post("/{post_id}/archive", response_model=PostSchema)
+async def archive_post(
+    post_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    Archive a published post.
+
+    Args:
+        post_id: Post ID
+        db: Database session
+        current_user: Current authenticated user
+
+    Returns:
+        PostSchema: Updated post
+
+    Raises:
+        HTTPException: If post not found or not published
+    """
+    service = PostService(db)
+    try:
+        post = await service.archive_post(current_user.id, post_id)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+
+    if not post:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Post not found",
+        )
+
+    return post
+
+
+@router.post("/{post_id}/restore", response_model=PostSchema)
+async def restore_post(
+    post_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    Restore an archived post.
+
+    Args:
+        post_id: Post ID
+        db: Database session
+        current_user: Current authenticated user
+
+    Returns:
+        PostSchema: Updated post
+
+    Raises:
+        HTTPException: If post not found
+    """
+    service = PostService(db)
+    post = await service.restore_post(current_user.id, post_id)
+
+    if not post:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Post not found",
+        )
+
+    return post
+
+
+class BulkArchiveRequest(BaseModel):
+    """Request body for bulk archive/restore operations."""
+    post_ids: List[int] = Field(..., min_length=1, description="List of post IDs")
+
+
+@router.post("/bulk/archive")
+async def bulk_archive_posts(
+    request: BulkArchiveRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    Archive multiple posts.
+
+    Args:
+        request: Bulk archive request with post IDs
+        db: Database session
+        current_user: Current authenticated user
+
+    Returns:
+        Count of archived posts
+    """
+    service = PostService(db)
+    count = await service.bulk_archive_posts(current_user.id, request.post_ids)
+    return {"archived_count": count, "message": f"Successfully archived {count} posts"}
+
+
+@router.post("/bulk/restore")
+async def bulk_restore_posts(
+    request: BulkArchiveRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    Restore multiple archived posts.
+
+    Args:
+        request: Bulk restore request with post IDs
+        db: Database session
+        current_user: Current authenticated user
+
+    Returns:
+        Count of restored posts
+    """
+    service = PostService(db)
+    count = await service.bulk_restore_posts(current_user.id, request.post_ids)
+    return {"restored_count": count, "message": f"Successfully restored {count} posts"}

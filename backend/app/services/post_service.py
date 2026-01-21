@@ -80,6 +80,7 @@ class PostService:
         self,
         user_id: int,
         status: Optional[PostStatus] = None,
+        is_archived: Optional[bool] = None,
         date_from: Optional[datetime] = None,
         date_to: Optional[datetime] = None,
         search: Optional[str] = None,
@@ -91,6 +92,7 @@ class PostService:
         Args:
             user_id: User ID
             status: Optional status filter
+            is_archived: Optional archive status filter
             date_from: Optional start date filter
             date_to: Optional end date filter
             search: Optional content search
@@ -106,6 +108,9 @@ class PostService:
         # Apply filters
         if status:
             query = query.filter(Post.status == status)
+
+        if is_archived is not None:
+            query = query.filter(Post.is_archived == is_archived)
 
         if date_from:
             query = query.filter(Post.created_at >= date_from)
@@ -274,3 +279,109 @@ class PostService:
 
         logger.info(f"Published post {post_id} for user {user_id}")
         return post
+
+    async def archive_post(
+        self,
+        user_id: int,
+        post_id: int,
+    ) -> Optional[Post]:
+        """Archive a published post.
+
+        Args:
+            user_id: User ID for authorization
+            post_id: Post ID
+
+        Returns:
+            Updated Post or None if not found
+
+        Raises:
+            ValueError: If post is not published
+        """
+        post = await self.get_post(user_id, post_id)
+        if not post:
+            return None
+
+        if post.status != PostStatus.PUBLISHED:
+            raise ValueError("Only published posts can be archived")
+
+        post.is_archived = True
+        post.archived_at = datetime.utcnow()
+
+        await self.db.commit()
+        await self.db.refresh(post)
+
+        logger.info(f"Archived post {post_id} for user {user_id}")
+        return post
+
+    async def restore_post(
+        self,
+        user_id: int,
+        post_id: int,
+    ) -> Optional[Post]:
+        """Restore an archived post.
+
+        Args:
+            user_id: User ID for authorization
+            post_id: Post ID
+
+        Returns:
+            Updated Post or None if not found
+        """
+        post = await self.get_post(user_id, post_id)
+        if not post:
+            return None
+
+        post.is_archived = False
+        post.archived_at = None
+
+        await self.db.commit()
+        await self.db.refresh(post)
+
+        logger.info(f"Restored post {post_id} for user {user_id}")
+        return post
+
+    async def bulk_archive_posts(
+        self,
+        user_id: int,
+        post_ids: List[int],
+    ) -> int:
+        """Archive multiple posts.
+
+        Args:
+            user_id: User ID for authorization
+            post_ids: List of Post IDs to archive
+
+        Returns:
+            Number of posts archived
+        """
+        archived_count = 0
+        for post_id in post_ids:
+            try:
+                result = await self.archive_post(user_id, post_id)
+                if result:
+                    archived_count += 1
+            except ValueError:
+                # Skip non-published posts
+                pass
+        return archived_count
+
+    async def bulk_restore_posts(
+        self,
+        user_id: int,
+        post_ids: List[int],
+    ) -> int:
+        """Restore multiple archived posts.
+
+        Args:
+            user_id: User ID for authorization
+            post_ids: List of Post IDs to restore
+
+        Returns:
+            Number of posts restored
+        """
+        restored_count = 0
+        for post_id in post_ids:
+            result = await self.restore_post(user_id, post_id)
+            if result:
+                restored_count += 1
+        return restored_count
