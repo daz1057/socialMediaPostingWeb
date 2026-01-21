@@ -20,6 +20,17 @@ class ImageGenerationRequest(BaseModel):
     height: Optional[int] = Field(default=None, description="Image height in pixels - Flux only")
     steps: Optional[int] = Field(default=None, description="Number of inference steps - Flux only")
     guidance: Optional[float] = Field(default=None, description="Guidance scale - Flux only")
+    reference_image_url: Optional[str] = Field(
+        default=None,
+        max_length=500,
+        description="Reference image URL for style guidance",
+    )
+    reference_image_strength: Optional[float] = Field(
+        default=None,
+        ge=0,
+        le=1,
+        description="Reference image strength (0-1)",
+    )
 
 
 class ImageData(BaseModel):
@@ -47,3 +58,12 @@ class ImageGenerationError(BaseModel):
     model_used: str = Field(..., description="Model ID attempted")
     provider: str = Field(..., description="Provider name")
     request_id: str = Field(..., description="Unique request identifier")
+
+
+class ReferenceImageUploadResponse(BaseModel):
+    """Schema for reference image upload response."""
+
+    s3_url: str = Field(..., description="S3 URL of uploaded reference image")
+    s3_key: str = Field(..., description="S3 key of uploaded reference image")
+    filename: str = Field(..., description="Original filename")
+    content_type: str = Field(..., description="Content type of uploaded image")

@@ -1,5 +1,6 @@
 """Black Forest Labs Flux image generation provider implementation."""
 
+import base64
 import logging
 import time
 import httpx
@@ -50,6 +51,7 @@ class BFLFluxProvider(BaseImageProvider):
             steps = params.get("steps", 28)
             guidance = params.get("guidance", 3.5)
             safety_tolerance = params.get("safety_tolerance", 2)
+            image_strength = params.get("image_strength")
 
             logger.info(f"Calling BFL Flux API with model {self.model_id}")
 
@@ -59,6 +61,11 @@ class BFLFluxProvider(BaseImageProvider):
                 "width": width,
                 "height": height,
             }
+
+            if request.reference_image_path:
+                payload["image"] = self._encode_reference_image(request.reference_image_path)
+                if image_strength is not None:
+                    payload["image_strength"] = image_strength
 
             # Add model-specific parameters
             if self.model_id in ["flux-pro-1.1", "flux-pro"]:
@@ -186,6 +193,11 @@ class BFLFluxProvider(BaseImageProvider):
         response = client.get(url)
         response.raise_for_status()
         return base64.b64encode(response.content).decode("utf-8")
+
+    def _encode_reference_image(self, path: str) -> str:
+        """Read reference image and encode to base64."""
+        with open(path, "rb") as image_file:
+            return base64.b64encode(image_file.read()).decode("utf-8")
 
     def validate_credentials(self) -> bool:
         """Validate that credentials are properly configured.

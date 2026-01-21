@@ -2,8 +2,12 @@
 Image generation service for AI image generation with provider abstraction.
 """
 import logging
+import os
+import tempfile
 import uuid
 from typing import Optional
+
+import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -40,6 +44,8 @@ class ImageGenerationService:
         height: Optional[int] = None,
         steps: Optional[int] = None,
         guidance: Optional[float] = None,
+        reference_image_url: Optional[str] = None,
+        reference_image_strength: Optional[float] = None,
     ) -> ImageGenerationResponse:
         """Generate image using AI provider.
 
@@ -55,6 +61,8 @@ class ImageGenerationService:
             height: Image height (Flux)
             steps: Inference steps (Flux)
             guidance: Guidance scale (Flux)
+            reference_image_url: URL to a reference image for style guidance
+            reference_image_strength: Strength of reference image (0-1)
 
         Returns:
             ImageGenerationResponse: Generated image or error
@@ -107,24 +115,40 @@ class ImageGenerationService:
             if guidance is not None:
                 additional_params["guidance"] = guidance
 
-            generation_request = ImageGenerationRequest(
-                prompt=prompt,
-                additional_params=additional_params,
-            )
+            reference_image_path = None
+            try:
+                if reference_image_url:
+                    reference_image_path = await self._download_reference_image(reference_image_url)
+                    if reference_image_strength is not None:
+                        additional_params["image_strength"] = reference_image_strength
 
-            # 5. Call provider
-            logger.info(f"[{request_id}] Calling image provider...")
-            response = provider.generate_image(generation_request)
+                generation_request = ImageGenerationRequest(
+                    prompt=prompt,
+                    reference_image_path=reference_image_path,
+                    additional_params=additional_params,
+                )
 
-            # Add request ID to response
-            response.request_id = request_id
+                # 5. Call provider
+                logger.info(f"[{request_id}] Calling image provider...")
+                response = provider.generate_image(generation_request)
 
-            if response.success:
-                logger.info(f"[{request_id}] Image generation successful")
-            else:
-                logger.error(f"[{request_id}] Image generation failed: {response.error}")
+                # Add request ID to response
+                response.request_id = request_id
 
-            return response
+                if response.success:
+                    logger.info(f"[{request_id}] Image generation successful")
+                else:
+                    logger.error(f"[{request_id}] Image generation failed: {response.error}")
+
+                return response
+            finally:
+                if reference_image_path and os.path.exists(reference_image_path):
+                    try:
+                        os.remove(reference_image_path)
+                    except OSError:
+                        logger.warning(
+                            f"[{request_id}] Failed to remove temp reference image: {reference_image_path}"
+                        )
 
         except Exception as e:
             logger.error(f"[{request_id}] Image generation service error: {str(e)}", exc_info=True)
@@ -204,3 +228,33 @@ class ImageGenerationService:
         except Exception as e:
             logger.error(f"Failed to decrypt credential: {str(e)}")
             raise ValueError(f"Failed to decrypt credential: {str(e)}")
+
+    async def _download_reference_image(self, url: str) -> str:
+        """Download reference image to a temporary file.
+
+        Args:
+            url: URL of the reference image
+
+        Returns:
+            Path to the downloaded temp file
+
+        Raises:
+            ValueError: If download fails or content type is invalid
+        """
+        if not url.startswith(("http://", "https://")):
+            raise ValueError("Reference image URL must be http or https")
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(url)
+            response.raise_for_status()
+
+        content_type = response.headers.get("Content-Type", "")
+        extension = ""
+        if "image/" in content_type:
+            extension = f".{content_type.split('/')[-1].split(';')[0]}"
+
+        with tempfile.NamedTemporaryFile(delete=False, suffix=extension) as temp_file:
+            temp_file.write(response.content)
+            temp_path = temp_file.name
+
+        return temp_path

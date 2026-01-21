@@ -363,6 +363,8 @@ export interface ImageGenerationRequest {
   height?: number;
   steps?: number;
   guidance?: number;
+  reference_image_url?: string;
+  reference_image_strength?: number;
 }
 
 export interface ImageData {
@@ -384,6 +386,13 @@ export interface ImageGenerationError {
   model_used: string;
   provider: string;
   request_id: string;
+}
+
+export interface ReferenceImageUploadResponse {
+  s3_url: string;
+  s3_key: string;
+  filename: string;
+  content_type: string;
 }
 
 // ============ Template Types ============

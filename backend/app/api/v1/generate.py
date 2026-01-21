@@ -1,7 +1,7 @@
 """
 Text and image generation API endpoints.
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -12,10 +12,12 @@ from app.schemas.image_generation import (
     ImageGenerationResponse,
     ImageGenerationError,
     ImageData,
+    ReferenceImageUploadResponse,
 )
 from app.utils.security import get_current_active_user
 from app.services.generation_service import GenerationService
 from app.services.image_generation_service import ImageGenerationService
+from app.services.s3_service import get_s3_service
 
 router = APIRouter()
 
@@ -135,6 +137,8 @@ async def generate_image(
             height=request.height,
             steps=request.steps,
             guidance=request.guidance,
+            reference_image_url=request.reference_image_url,
+            reference_image_strength=request.reference_image_strength,
         )
 
         if not response.success:
@@ -169,4 +173,25 @@ async def generate_image(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Image generation failed: {str(e)}",
+        )
+
+
+@router.post("/image/reference", response_model=ReferenceImageUploadResponse)
+async def upload_reference_image(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Upload a reference image for style-guided generation."""
+    try:
+        s3_service = get_s3_service()
+        upload_result = await s3_service.upload_file(
+            file=file,
+            user_id=current_user.id,
+            prefix="reference-images",
+        )
+        return ReferenceImageUploadResponse(**upload_result)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to upload reference image: {str(e)}",
         )
