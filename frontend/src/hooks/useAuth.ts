@@ -4,7 +4,8 @@ import { useAuthStore } from '@/store/authStore';
 import type { User, UserCreate, LoginRequest, TokenResponse } from '@/types';
 
 export function useCurrentUser() {
-  const { isAuthenticated } = useAuthStore();
+  const { accessToken, setUser } = useAuthStore();
+  const storedToken = accessToken ?? localStorage.getItem('access_token');
 
   return useQuery({
     queryKey: ['currentUser'],
@@ -12,8 +13,11 @@ export function useCurrentUser() {
       const response = await apiClient.get<User>('/auth/me');
       return response.data;
     },
-    enabled: isAuthenticated,
+    enabled: !!storedToken,
     retry: false,
+    onSuccess: (user) => {
+      setUser(user);
+    },
   });
 }
 
