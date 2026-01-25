@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { Spin } from 'antd';
 import { useAuthStore } from '@/store/authStore';
@@ -9,11 +10,19 @@ interface ProtectedRouteProps {
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const location = useLocation();
-  const { isAuthenticated, accessToken } = useAuthStore();
+  const { isAuthenticated, accessToken, refreshToken, setTokens } = useAuthStore();
   const { isLoading } = useCurrentUser();
+  const storedAccessToken = accessToken ?? localStorage.getItem('access_token');
+  const storedRefreshToken = refreshToken ?? localStorage.getItem('refresh_token');
+
+  useEffect(() => {
+    if (!accessToken && storedAccessToken && storedRefreshToken) {
+      setTokens(storedAccessToken, storedRefreshToken);
+    }
+  }, [accessToken, setTokens, storedAccessToken, storedRefreshToken]);
 
   // If no token at all, redirect to login
-  if (!accessToken) {
+  if (!storedAccessToken) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
