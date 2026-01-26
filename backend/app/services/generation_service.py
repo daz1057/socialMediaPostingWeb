@@ -2,14 +2,21 @@
 Generation service for AI text generation with customer info injection.
 """
 import logging
+import random
 import uuid
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.models.user import User
 from app.models.prompt import Prompt
-from app.models.customer_info import CustomerInfo
+from app.models.customer_info import (
+    CustomerInfo,
+    CustomerCategory,
+    RANDOM_CATEGORIES,
+    ALL_PAIRS_CATEGORIES,
+    IGNORED_CATEGORIES,
+)
 from app.models.model_config import ModelConfig
 from app.models.credential import Credential
 from app.providers import ProviderFactory, GenerationRequest, GenerationResponse
@@ -158,12 +165,17 @@ class GenerationService:
         prompt_template: str,
         selected_customers: Dict[str, bool],
     ) -> str:
-        """Inject customer info into prompt template.
+        """Inject customer info into prompt template using desktop app injection rules.
+
+        Rules:
+        - RANDOM_CATEGORIES (Pain, Pleasures, Desires, Relatable Truths): Pick ONE random pair
+        - ALL_PAIRS_CATEGORIES (Customer Persona, Artist Persona, Brand, In Groups): Include ALL pairs
+        - IGNORED_CATEGORIES (Pun Primer, USP, Roles): Skip entirely
 
         Args:
             user_id: User ID
             prompt_template: Prompt template with placeholders
-            selected_customers: Dict of customer info keys that are enabled
+            selected_customers: Dict of category names that are enabled
 
         Returns:
             Rendered prompt with customer info injected
@@ -172,49 +184,86 @@ class GenerationService:
         if not selected_customers:
             return prompt_template
 
-        # Load all selected customer info
-        enabled_keys = [key for key, enabled in selected_customers.items() if enabled]
-        if not enabled_keys:
+        # Get enabled category names
+        enabled_categories = [key for key, enabled in selected_customers.items() if enabled]
+        if not enabled_categories:
             return prompt_template
 
+        # Map category names to enum values
+        category_map = {cat.value: cat for cat in CustomerCategory}
+        enabled_enums = []
+        for cat_name in enabled_categories:
+            if cat_name in category_map:
+                cat_enum = category_map[cat_name]
+                # Skip ignored categories
+                if cat_enum not in IGNORED_CATEGORIES:
+                    enabled_enums.append(cat_enum)
+
+        if not enabled_enums:
+            return prompt_template
+
+        # Load all selected customer info
         result = await self.db.execute(
             select(CustomerInfo).filter(
                 CustomerInfo.user_id == user_id,
-                CustomerInfo.key.in_(enabled_keys),
+                CustomerInfo.category.in_(enabled_enums),
             )
         )
         customer_infos = result.scalars().all()
 
         # Build context from customer info
         rendered_prompt = prompt_template
+        injected_sections = []
 
         for customer_info in customer_infos:
-            # Convert customer info content to string for injection
-            # You can customize this format based on your needs
-            content_str = self._format_customer_content(customer_info.key, customer_info.content)
+            category = customer_info.category
+            details = customer_info.details or []
 
-            # Append to prompt (you could also replace placeholders if you have a specific format)
-            rendered_prompt += f"\n\n## {customer_info.key}\n{content_str}"
+            # Skip if no details
+            if not details:
+                continue
+
+            # Apply injection rules
+            if category in RANDOM_CATEGORIES:
+                # Pick ONE random pair
+                pair = random.choice(details)
+                pairs_to_inject = [pair]
+            elif category in ALL_PAIRS_CATEGORIES:
+                # Include ALL pairs
+                pairs_to_inject = details
+            else:
+                # Should not happen due to earlier filtering, but skip just in case
+                continue
+
+            # Format using desktop style
+            section = self._format_customer_section(category.value, pairs_to_inject)
+            injected_sections.append(section)
+
+        # Append all sections to the prompt
+        if injected_sections:
+            rendered_prompt += "\n\n" + "\n\n".join(injected_sections)
 
         return rendered_prompt
 
-    def _format_customer_content(self, key: str, content: Dict) -> str:
-        """Format customer content for injection into prompt.
+    def _format_customer_section(self, category_name: str, pairs: List[Dict]) -> str:
+        """Format customer info section in desktop app style.
 
         Args:
-            key: Customer info key
-            content: Customer info content (JSON)
+            category_name: Category display name
+            pairs: List of {prompt, response} pairs
 
         Returns:
-            Formatted string
+            Formatted section string
         """
-        # Simple formatting - convert dict to readable string
-        lines = []
-        for k, v in content.items():
-            if isinstance(v, (dict, list)):
-                lines.append(f"**{k}**: {v}")
-            else:
-                lines.append(f"**{k}**: {v}")
+        lines = [f"### Customer {category_name} ###"]
+
+        for pair in pairs:
+            prompt_text = pair.get("prompt", "")
+            response_text = pair.get("response", "")
+            lines.append(f"Prompt: {prompt_text}")
+            lines.append(f"Response: {response_text}")
+
+        lines.append(f"### End Customer {category_name} ###")
 
         return "\n".join(lines)
 

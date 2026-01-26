@@ -11,6 +11,8 @@ import {
   SettingOutlined,
   SnippetsOutlined,
   ScanOutlined,
+  UserOutlined,
+  ImportOutlined,
 } from '@ant-design/icons';
 
 type MenuItem = Required<MenuProps>['items'][number];
@@ -76,6 +78,16 @@ const menuItems: MenuItem[] = [
         key: '/settings/models',
         icon: <PictureOutlined />,
         label: 'Model Config',
+      },
+      {
+        key: '/settings/customer-info',
+        icon: <UserOutlined />,
+        label: 'Customer Info',
+      },
+      {
+        key: '/settings/import',
+        icon: <ImportOutlined />,
+        label: 'Import Data',
       },
     ],
   },

@@ -58,3 +58,12 @@ export {
 
 // OCR hooks
 export { useProcessImage, useOCRProviders } from './useOCR';
+
+// Customer Info hooks
+export {
+  useCustomerInfoCategories,
+  useCustomerInfoList,
+  useCustomerInfo,
+  useUpdateCustomerInfo,
+  useInitializeCustomerInfo,
+} from './useCustomerInfo';

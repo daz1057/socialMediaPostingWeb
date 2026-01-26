@@ -1,12 +1,27 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Form, Input, Button, Card, Typography, message, Space, Spin, Divider, Row, Col } from 'antd';
-import { ArrowLeftOutlined } from '@ant-design/icons';
+import { Form, Input, Button, Card, Typography, message, Space, Spin, Divider, Row, Col, Checkbox, Tag, Tooltip } from 'antd';
+import { ArrowLeftOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import { usePrompt, useUpdatePrompt } from '@/hooks/usePrompts';
-import type { PromptUpdate } from '@/types';
+import { useCustomerInfoList } from '@/hooks';
+import type { PromptUpdate, CustomerCategory, InjectionType } from '@/types';
+import { CUSTOMER_CATEGORIES, getInjectionType } from '@/types';
 
-const { Title } = Typography;
+const { Title, Text } = Typography;
 const { TextArea } = Input;
+
+// Injection type tag colors
+const INJECTION_TYPE_COLORS: Record<InjectionType, string> = {
+  random: 'blue',
+  all: 'green',
+  ignored: 'default',
+};
+
+const INJECTION_TYPE_LABELS: Record<InjectionType, string> = {
+  random: 'Random',
+  all: 'All',
+  ignored: 'Ignored',
+};
 
 export function PromptEditPage() {
   const { id } = useParams<{ id: string }>();
@@ -16,6 +31,26 @@ export function PromptEditPage() {
   const promptId = parseInt(id || '0', 10);
   const { data: prompt, isLoading } = usePrompt(promptId);
   const updatePrompt = useUpdatePrompt(promptId);
+  const { data: customerInfoList } = useCustomerInfoList();
+
+  // Get categories that have data
+  const categoriesWithData = useMemo(() => {
+    const set = new Set<CustomerCategory>();
+    customerInfoList?.customer_info.forEach((info) => {
+      if (info.details && info.details.length > 0) {
+        set.add(info.category);
+      }
+    });
+    return set;
+  }, [customerInfoList]);
+
+  // Convert selected_customers Record to array for checkbox group
+  const getSelectedCategories = (selectedCustomers?: Record<string, boolean>): CustomerCategory[] => {
+    if (!selectedCustomers) return [];
+    return Object.entries(selectedCustomers)
+      .filter(([_, enabled]) => enabled)
+      .map(([category]) => category as CustomerCategory);
+  };
 
   useEffect(() => {
     if (prompt) {
@@ -27,13 +62,28 @@ export function PromptEditPage() {
         example_image: prompt.example_image,
         media_file_path: prompt.media_file_path,
         aws_folder_url: prompt.aws_folder_url,
+        selectedCategories: getSelectedCategories(prompt.selected_customers),
       });
     }
   }, [prompt, form]);
 
-  const onFinish = async (values: PromptUpdate) => {
+  const onFinish = async (values: PromptUpdate & { selectedCategories?: CustomerCategory[] }) => {
     try {
-      await updatePrompt.mutateAsync(values);
+      // Convert selected categories array to Record<string, boolean>
+      const selected_customers: Record<string, boolean> = {};
+      if (values.selectedCategories) {
+        values.selectedCategories.forEach((cat) => {
+          selected_customers[cat] = true;
+        });
+      }
+
+      const promptData: PromptUpdate = {
+        ...values,
+        selected_customers,
+      };
+      delete (promptData as { selectedCategories?: CustomerCategory[] }).selectedCategories;
+
+      await updatePrompt.mutateAsync(promptData);
       message.success('Prompt updated successfully');
       navigate(`/prompts/${promptId}`);
     } catch {
@@ -93,6 +143,57 @@ export function PromptEditPage() {
           >
             <TextArea rows={8} />
           </Form.Item>
+
+          <Divider orientation="left">
+            Customer Info{' '}
+            <Tooltip title="Select which customer info categories to inject into this prompt during generation">
+              <InfoCircleOutlined style={{ color: '#999' }} />
+            </Tooltip>
+          </Divider>
+
+          <Form.Item
+            name="selectedCategories"
+            label={
+              <Space>
+                <span>Categories to Include</span>
+                <Text type="secondary" style={{ fontWeight: 'normal' }}>
+                  (only categories with data are shown)
+                </Text>
+              </Space>
+            }
+          >
+            <Checkbox.Group style={{ width: '100%' }}>
+              <Row gutter={[16, 8]}>
+                {CUSTOMER_CATEGORIES.filter(cat => categoriesWithData.has(cat)).map((category) => {
+                  const injectionType = getInjectionType(category);
+                  return (
+                    <Col span={12} key={category}>
+                      <Checkbox value={category} disabled={injectionType === 'ignored'}>
+                        <Space>
+                          {category}
+                          <Tag
+                            color={INJECTION_TYPE_COLORS[injectionType]}
+                            style={{ marginLeft: 4 }}
+                          >
+                            {INJECTION_TYPE_LABELS[injectionType]}
+                          </Tag>
+                        </Space>
+                      </Checkbox>
+                    </Col>
+                  );
+                })}
+              </Row>
+            </Checkbox.Group>
+          </Form.Item>
+
+          {categoriesWithData.size === 0 && (
+            <Text type="secondary">
+              No customer info categories have data yet.{' '}
+              <a onClick={() => navigate('/settings/customer-info')}>
+                Configure Customer Info
+              </a>
+            </Text>
+          )}
 
           <Form.Item
             name="artwork_description"

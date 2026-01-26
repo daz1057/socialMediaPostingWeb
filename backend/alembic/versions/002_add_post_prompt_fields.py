@@ -1,7 +1,7 @@
 """Add additional fields to posts and prompts tables.
 
 Revision ID: 002_add_post_prompt_fields
-Revises: 001_add_posts_table
+Revises: 001_add_posts
 Create Date: 2024-01-20
 
 """
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = '002_add_post_prompt_fields'
-down_revision: Union[str, None] = '001_add_posts_table'
+down_revision: Union[str, None] = '001_add_posts'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

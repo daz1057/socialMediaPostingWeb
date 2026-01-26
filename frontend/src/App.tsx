@@ -42,7 +42,7 @@ import {
 import { OCRPage } from './pages/ocr';
 
 // Settings Pages
-import { CredentialsPage, ModelsPage } from './pages/settings';
+import { CredentialsPage, ModelsPage, CustomerInfoPage, ImportPage } from './pages/settings';
 
 function App() {
   return (
@@ -97,6 +97,8 @@ function App() {
           {/* Settings */}
           <Route path="/settings/credentials" element={<CredentialsPage />} />
           <Route path="/settings/models" element={<ModelsPage />} />
+          <Route path="/settings/customer-info" element={<CustomerInfoPage />} />
+          <Route path="/settings/import" element={<ImportPage />} />
         </Route>
 
         {/* Catch all - redirect to dashboard */}
