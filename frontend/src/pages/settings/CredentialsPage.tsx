@@ -153,7 +153,7 @@ export function CredentialsPage() {
 
       <Table
         columns={columns}
-        dataSource={data?.items}
+        dataSource={data?.credentials}
         rowKey="key"
         loading={isLoading}
         pagination={false}

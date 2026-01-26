@@ -51,22 +51,17 @@ export function PromptsListPage() {
     },
     {
       title: 'Description',
-      dataIndex: 'description',
-      key: 'description',
+      dataIndex: 'details',
+      key: 'details',
       ellipsis: true,
-      render: (desc) => desc || '-',
+      render: (details) => details ? details.substring(0, 100) + (details.length > 100 ? '...' : '') : '-',
     },
     {
       title: 'Tags',
-      dataIndex: 'tags',
-      key: 'tags',
-      render: (tags: Prompt['tags']) => (
-        <>
-          {tags.slice(0, 3).map((tag) => (
-            <Tag key={tag.id}>{tag.name}</Tag>
-          ))}
-          {tags.length > 3 && <Tag>+{tags.length - 3}</Tag>}
-        </>
+      dataIndex: 'tag',
+      key: 'tag',
+      render: (tag: Prompt['tag']) => (
+        tag ? <Tag>{tag.name}</Tag> : '-'
       ),
     },
     {
@@ -131,7 +126,7 @@ export function PromptsListPage() {
 
       <Table
         columns={columns}
-        dataSource={data?.items}
+        dataSource={data?.prompts}
         rowKey="id"
         loading={isLoading}
         pagination={{

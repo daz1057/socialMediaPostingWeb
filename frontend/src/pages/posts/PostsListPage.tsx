@@ -363,7 +363,7 @@ export function PostsListPage() {
 
       <Table
         columns={columns}
-        dataSource={data?.items}
+        dataSource={data?.posts}
         rowKey="id"
         loading={isLoading}
         rowSelection={rowSelection}

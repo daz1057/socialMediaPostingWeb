@@ -49,7 +49,7 @@ export function DashboardPage() {
           <Card>
             <Statistic
               title="Draft Posts"
-              value={postsData?.items?.filter(p => p.status === 'draft').length ?? 0}
+              value={postsData?.posts?.filter(p => p.status === 'draft').length ?? 0}
               loading={postsLoading}
               prefix={<EditOutlined />}
             />
@@ -60,7 +60,7 @@ export function DashboardPage() {
           <Card>
             <Statistic
               title="Published Posts"
-              value={postsData?.items?.filter(p => p.status === 'published').length ?? 0}
+              value={postsData?.posts?.filter(p => p.status === 'published').length ?? 0}
               loading={postsLoading}
               prefix={<SendOutlined />}
             />

@@ -63,38 +63,92 @@ export interface TagUpdate {
 }
 
 // ============ Customer Info Types ============
+
+// All 11 predefined categories matching desktop app
+export const CUSTOMER_CATEGORIES = [
+  'Pain',
+  'Pleasures',
+  'Desires',
+  'Relatable Truths',
+  'Customer Persona',
+  'Artist Persona',
+  'Brand',
+  'In Groups and Out Groups',
+  'Pun Primer',
+  'USP',
+  'Roles',
+] as const;
+
+export type CustomerCategory = typeof CUSTOMER_CATEGORIES[number];
+
+// Injection types for categories
+export type InjectionType = 'random' | 'all' | 'ignored';
+
+// Categories that pick ONE random pair during injection
+export const RANDOM_INJECTION_CATEGORIES: CustomerCategory[] = [
+  'Pain',
+  'Pleasures',
+  'Desires',
+  'Relatable Truths',
+];
+
+// Categories that include ALL pairs during injection
+export const ALL_PAIRS_INJECTION_CATEGORIES: CustomerCategory[] = [
+  'Customer Persona',
+  'Artist Persona',
+  'Brand',
+  'In Groups and Out Groups',
+];
+
+// Categories that are ignored during injection
+export const IGNORED_CATEGORIES: CustomerCategory[] = [
+  'Pun Primer',
+  'USP',
+  'Roles',
+];
+
+// Get injection type for a category
+export function getInjectionType(category: CustomerCategory): InjectionType {
+  if (RANDOM_INJECTION_CATEGORIES.includes(category)) return 'random';
+  if (ALL_PAIRS_INJECTION_CATEGORIES.includes(category)) return 'all';
+  return 'ignored';
+}
+
+// A single prompt-response pair
+export interface PromptResponsePair {
+  prompt: string;
+  response: string;
+}
+
 export interface CustomerInfo {
   id: number;
-  name: string;
-  industry?: string;
-  target_audience?: string;
-  brand_voice?: string;
-  key_products?: string;
-  unique_selling_points?: string;
-  additional_context?: string;
+  category: CustomerCategory;
+  details: PromptResponsePair[];
+  description?: string;
   user_id: number;
   created_at: string;
   updated_at?: string;
 }
 
-export interface CustomerInfoCreate {
-  name: string;
-  industry?: string;
-  target_audience?: string;
-  brand_voice?: string;
-  key_products?: string;
-  unique_selling_points?: string;
-  additional_context?: string;
+export interface CustomerInfoUpdate {
+  details?: PromptResponsePair[];
+  description?: string;
 }
 
-export interface CustomerInfoUpdate {
-  name?: string;
-  industry?: string;
-  target_audience?: string;
-  brand_voice?: string;
-  key_products?: string;
-  unique_selling_points?: string;
-  additional_context?: string;
+export interface CustomerInfoList {
+  customer_info: CustomerInfo[];
+  total: number;
+}
+
+export interface CustomerCategoryInfo {
+  category: CustomerCategory;
+  display_name: string;
+  injection_type: InjectionType;
+  description: string;
+}
+
+export interface CustomerCategoriesResponse {
+  categories: CustomerCategoryInfo[];
 }
 
 // ============ Prompt Types ============
@@ -168,7 +222,7 @@ export interface CredentialUpdate {
 }
 
 export interface CredentialList {
-  items: Credential[];
+  credentials: Credential[];
   total: number;
   skip: number;
   limit: number;
@@ -216,7 +270,7 @@ export interface ModelConfigUpdate {
 }
 
 export interface ModelConfigList {
-  items: ModelConfig[];
+  models: ModelConfig[];
   total: number;
   skip: number;
   limit: number;
@@ -312,7 +366,7 @@ export interface PostUpdate {
 }
 
 export interface PostList {
-  items: Post[];
+  posts: Post[];
   total: number;
   skip: number;
   limit: number;

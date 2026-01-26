@@ -100,7 +100,7 @@ export function TextGenerationPage() {
                 loading={promptsLoading}
                 showSearch
                 optionFilterProp="label"
-                options={promptsData?.items.map((p) => ({
+                options={promptsData?.prompts.map((p) => ({
                   value: p.id,
                   label: p.name,
                 }))}
@@ -115,7 +115,7 @@ export function TextGenerationPage() {
               <Select
                 placeholder="Select a model"
                 loading={modelsLoading}
-                options={modelsData?.items.map((m) => ({
+                options={modelsData?.models.map((m) => ({
                   value: m.id,
                   label: m.display_name || `${m.provider} / ${m.model_id}`,
                 }))}
@@ -154,19 +154,19 @@ export function TextGenerationPage() {
             </Form.Item>
           </Form>
 
-          {(promptsData?.items.length === 0 || modelsData?.items.length === 0) && (
+          {(promptsData?.prompts?.length === 0 || modelsData?.models?.length === 0) && (
             <Alert
               type="warning"
               message="Setup Required"
               description={
                 <div>
-                  {promptsData?.items.length === 0 && (
+                  {promptsData?.prompts?.length === 0 && (
                     <p>
                       No prompts found.{' '}
                       <a onClick={() => navigate('/prompts/new')}>Create a prompt</a>
                     </p>
                   )}
-                  {modelsData?.items.length === 0 && (
+                  {modelsData?.models?.length === 0 && (
                     <p>
                       No text models configured.{' '}
                       <a onClick={() => navigate('/settings/models')}>Configure models</a>

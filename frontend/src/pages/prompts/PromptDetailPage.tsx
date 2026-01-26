@@ -93,16 +93,23 @@ export function PromptDetailPage() {
 
       <Card>
         <Descriptions column={1} bordered>
-          <Descriptions.Item label="Description">
-            {prompt.description || <Text type="secondary">No description</Text>}
-          </Descriptions.Item>
-          <Descriptions.Item label="Tags">
-            {prompt.tags.length > 0 ? (
-              prompt.tags.map((tag) => <Tag key={tag.id}>{tag.name}</Tag>)
+          <Descriptions.Item label="Tag">
+            {prompt.tag ? (
+              <Tag>{prompt.tag.name}</Tag>
             ) : (
-              <Text type="secondary">No tags</Text>
+              <Text type="secondary">No tag</Text>
             )}
           </Descriptions.Item>
+          {prompt.url && (
+            <Descriptions.Item label="URL">
+              <a href={prompt.url} target="_blank" rel="noopener noreferrer">{prompt.url}</a>
+            </Descriptions.Item>
+          )}
+          {prompt.artwork_description && (
+            <Descriptions.Item label="Artwork Description">
+              {prompt.artwork_description}
+            </Descriptions.Item>
+          )}
           <Descriptions.Item label="Created">
             {new Date(prompt.created_at).toLocaleString()}
           </Descriptions.Item>
@@ -114,7 +121,7 @@ export function PromptDetailPage() {
         </Descriptions>
       </Card>
 
-      <Card title="Prompt Content" style={{ marginTop: 16 }}>
+      <Card title="Prompt Details" style={{ marginTop: 16 }}>
         <Paragraph>
           <pre style={{
             whiteSpace: 'pre-wrap',
@@ -124,7 +131,7 @@ export function PromptDetailPage() {
             borderRadius: 8,
             margin: 0,
           }}>
-            {prompt.content}
+            {prompt.details}
           </pre>
         </Paragraph>
       </Card>

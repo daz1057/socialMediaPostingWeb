@@ -47,7 +47,7 @@ export function OCRPage() {
   const processImage = useProcessImage();
 
   const onModelChange = (modelId: number) => {
-    const model = modelsData?.items.find((m) => m.id === modelId);
+    const model = modelsData?.models.find((m) => m.id === modelId);
     setSelectedModel(model || null);
   };
 
@@ -163,7 +163,7 @@ export function OCRPage() {
                 placeholder="Select a vision model"
                 loading={modelsLoading}
                 onChange={onModelChange}
-                options={modelsData?.items.map((m) => ({
+                options={modelsData?.models.map((m) => ({
                   value: m.id,
                   label: m.display_name || `${m.provider} / ${m.model_id}`,
                 }))}
@@ -212,7 +212,7 @@ export function OCRPage() {
             </Form.Item>
           </Form>
 
-          {modelsData?.items.length === 0 && (
+          {modelsData?.models?.length === 0 && (
             <Alert
               type="warning"
               message="Setup Required"

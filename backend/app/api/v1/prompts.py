@@ -5,6 +5,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
+from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.models.user import User
@@ -38,8 +39,8 @@ async def list_prompts(
     Returns:
         PromptList: List of prompts with pagination info
     """
-    # Build query
-    query = select(Prompt).filter(Prompt.user_id == current_user.id)
+    # Build query with eager loading of tag relationship
+    query = select(Prompt).options(selectinload(Prompt.tag)).filter(Prompt.user_id == current_user.id)
 
     # Apply filters
     if tag_id is not None:
@@ -91,7 +92,12 @@ async def create_prompt(
 
     db.add(prompt)
     await db.commit()
-    await db.refresh(prompt)
+
+    # Re-fetch with tag relationship loaded
+    result = await db.execute(
+        select(Prompt).options(selectinload(Prompt.tag)).filter(Prompt.id == prompt.id)
+    )
+    prompt = result.scalar_one()
 
     return prompt
 
@@ -117,7 +123,7 @@ async def get_prompt(
         HTTPException: If prompt not found or unauthorized
     """
     result = await db.execute(
-        select(Prompt).filter(
+        select(Prompt).options(selectinload(Prompt.tag)).filter(
             Prompt.id == prompt_id,
             Prompt.user_id == current_user.id,
         )
@@ -157,7 +163,7 @@ async def update_prompt(
     """
     # Get existing prompt
     result = await db.execute(
-        select(Prompt).filter(
+        select(Prompt).options(selectinload(Prompt.tag)).filter(
             Prompt.id == prompt_id,
             Prompt.user_id == current_user.id,
         )
@@ -176,7 +182,12 @@ async def update_prompt(
         setattr(prompt, field, value)
 
     await db.commit()
-    await db.refresh(prompt)
+
+    # Re-fetch with tag relationship after update (tag_id may have changed)
+    result = await db.execute(
+        select(Prompt).options(selectinload(Prompt.tag)).filter(Prompt.id == prompt_id)
+    )
+    prompt = result.scalar_one()
 
     return prompt
 

@@ -195,7 +195,7 @@ export function ModelsPage() {
 
       <Table
         columns={columns}
-        dataSource={data?.items}
+        dataSource={data?.models}
         rowKey="id"
         loading={isLoading}
         pagination={false}
